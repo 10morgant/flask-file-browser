@@ -1,0 +1,18 @@
+{% macro render_versions(group, tool) %}
+    <ul>
+        {% for version in tool.versions %}
+            {% set link_parts = version.link.split('/') %}
+            {% if link_parts|length == 4 %}
+                <li>
+                    <a href="{{ url_for('download_file', group=link_parts[0], tool=link_parts[1], version=link_parts[2], name=link_parts[3]) }}">{{ version.display }}</a>
+                </li>
+            {% else %}
+                <li class="text-danger"><s>{{ version.display }}</s> (broken)</li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+    {% if tool.versions|length > 1 %}
+        <a href="{{ url_for('show_all_versions', group=group.group, tool=tool.name) }}"
+           class="btn btn-primary">Show All Versions</a>
+    {% endif %}
+{% endmacro %}

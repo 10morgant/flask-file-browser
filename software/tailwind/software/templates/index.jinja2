@@ -1,0 +1,217 @@
+{% extends "base.jinja2" %}
+{% import "macros.jinja2" as macros %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+
+
+
+
+
+    <div id="uploadFileModal1" tabindex="-1" aria-hidden="true"
+         class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-md max-h-full">
+            <!-- Modal content -->
+            <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-700">
+                <!-- Modal header -->
+                <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        Upload File
+                    </h3>
+                    <button type="button"
+                            class="end-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                            data-modal-hide="uploadFileModal">
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+                             viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                        </svg>
+                        <span class="sr-only">Close modal</span>
+                    </button>
+                </div>
+                <!-- Modal body -->
+                <div class="p-4 md:p-5">
+                    <form class="space-y-4" id="uploadFileForm" method="post" enctype="multipart/form-data"
+                          action="{{ url_for('upload_file') }}">
+                        <div>
+                            <label for="first_name"
+                                   class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Group</label>
+                            <input type="text" id="first_name"
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                   required/>
+                        </div>
+                        <div class="mb-3">
+                            <label for="group" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Group</label>
+                            <input class="form-control" list="groupList" id="group" name="group" required>
+                            <datalist id="groupList">
+                                {% for group in all_groups %}
+                                    <option value="{{ group.group }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tool"
+                                   class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Tool</label>
+                            <input class="form-control" list="toolList" id="tool" name="tool" required>
+                            <datalist id="toolList">
+                                <!-- Options will be populated dynamically using JavaScript -->
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label for="version" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Version</label>
+                            <input class="form-control" type="text" id="version" name="version" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="fileName" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">File</label>
+                            <input class="form-control" type="file" id="fileName" name="file" required>
+                        </div>
+                        <div class="mb-3 flex items-center">
+                            <input id="enableName" type="checkbox"
+                                   class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                            <label for="enableName" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Set
+                                new file name</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name"
+                                   class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+                            <input class="form-control" type="text" id="name" name="name" disabled>
+                        </div>
+                        <button type="submit"
+                                class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                            Upload
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Button -->
+    <button class="bg-blue-500 text-white px-4 py-2 rounded" id="toggleViewButton" data-modal-target="uploadFileModal"
+            data-modal-toggle="uploadFileModal">
+        <i class="ti ti-upload"></i>
+        Upload
+    </button>
+
+
+
+    <!-- Modal toggle -->
+    <button data-modal-target="uploadFileModal1" data-modal-toggle="authentication-modal"
+            class="block text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+            type="button">
+        Toggle modal
+    </button>
+
+    <!-- Main modal -->
+    <div id="uploadFileModal" tabindex="-1" aria-hidden="true"
+         class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+        <div class="relative p-4 w-full max-w-md max-h-full">
+            <!-- Modal content -->
+            <div class="relative bg-white rounded-lg shadow-sm dark:bg-gray-700">
+                <!-- Modal header -->
+                <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600 border-gray-200">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                        Upload new tool
+                    </h3>
+                    <button type="button"
+                            class="end-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                            data-modal-hide="uploadFileModal">
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+                             viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                        </svg>
+                        <span class="sr-only">Close modal</span>
+                    </button>
+                </div>
+                <!-- Modal body -->
+                <div class="p-4 md:p-5">
+                    <form class="space-y-4" id="uploadFileForm" method="post" enctype="multipart/form-data"
+                          action="{{ url_for('upload_file') }}">
+                        <div>
+                            <label for="group" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Group</label>
+                            <input name="group" id="group"
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white"
+                                   placeholder="Microsoft" required/>
+                        </div>
+                        <div>
+                            <label for="name"
+                                   class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Tool</label>
+                            <input name="name" id="name"
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white"
+                                   placeholder="VSCode" required/>
+                        </div>
+                        <div>
+                            <label for="version" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Version</label>
+                            <input name="version" id="version"
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white"
+                                   placeholder="v1.90.0" required/>
+                        </div>
+
+
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white" for="fileName">Upload
+                            file</label>
+                        <input class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                               id="fileName"  name="file" required type="file">
+
+
+                        <button type="submit"
+                                class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                            Upload
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+    <div id="accordion-flush" data-accordion="open"
+         data-active-classes="bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+            {#         data-inactive-classes="text-gray-500 dark:text-gray-400"#}
+    >
+        {% for group in groups %}
+            <h2 id="accordion-flush-heading-{{ loop.index }}">
+                <button type="button"
+                        class="flex items-center justify-between w-full py-5 font-medium rtl:text-right text-gray-500 border-b border-gray-200 dark:border-gray-700 dark:text-gray-400 gap-3"
+                        data-accordion-target="#accordion-flush-body-{{ loop.index }}" aria-expanded="false"
+                        aria-controls="accordion-flush-body-{{ loop.index }}">
+                    <span>{{ group.group }} ({{ group.tool_count }})</span>
+                    <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true"
+                         xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 5 5 1 1 5"/>
+                    </svg>
+                </button>
+            </h2>
+            <div id="accordion-flush-body-{{ loop.index }}"
+                 class="hidden"
+                 aria-labelledby="accordion-flush-heading-{{ loop.index }}">
+                <div class="py-5 border-b border-gray-200 dark:border-gray-700">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {% for tool in group.tools %}
+                            <div class="col">
+                                <div class="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                                    <a href="#">
+                                        <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                                            {{ tool.name }} ({{ tool.version_count }})
+                                        </h5>
+                                    </a>
+                                    <hr class="divide-y bg-gray-200 dark:border-gray-700 "/>
+                                    <div class="flex-grow px-6 text-gray-900 dark:text-white mt-4">
+                                        {{ macros.render_versions(group, tool) }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+{% endblock %}

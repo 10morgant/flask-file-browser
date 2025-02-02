@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <title>{% block title %}Software{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='tabler/webfont/tabler-icons.min.css') }}"/>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+        {#font-family: 'JetBrains Mono', monospace;#}
+        }
+
+        a {
+            text-decoration: none;
+            color: white;
+        }
+
+        .banner {
+        {#background-color: #9a0000;#} color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 35px; /* Adjust the height as needed */
+            margin-bottom: 0; /* Remove margin at the bottom */
+            padding: 10px 3px 0px 10px;
+        }
+
+        .navbar {
+            margin-top: 0; /* Remove margin at the top */
+        {#background-color: #2596be;#} background-color: #5e8d87;
+        {##5988da;#} color: white;
+        }
+
+        .breadcrumb-item + .breadcrumb-item::before {
+            color: rgba(255, 255, 255, .5) !important; /* Change this to your desired color */
+        }
+
+        tr[data-href] {
+            cursor: pointer;
+        }
+
+        .accordion-item .accordion-button:hover {
+            background-color: #031633; /* Change this to your desired hover color */
+        }
+
+        .accordion {
+            --bs-accordion-border-radius: 0; /* Remove rounded edges */
+        {#background-color: #031633;#}
+        }
+
+        .nested-accordion .accordion-body {
+            background-color: #2a2e33; /* Change this to your desired background color */
+        }
+    </style>
+</head>
+<body>
+{% if notice_text %}
+    <div class="banner bg-danger">
+        <p>{{ notice_text }}</p>
+    </div>
+{% endif %}
+<nav class="navbar">
+    <div class="container-fluid">
+        <a class="navbar-brand text-white" href="/">Software</a>
+        <!-- Breadcrumb navigation -->
+
+        <div class="d-flex">
+            <!-- Buttons to trigger the modals -->
+            <!-- Button to trigger the upload file modal -->
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
+                Upload File
+            </button>
+            <button id="toggleViewButton" class="btn btn-secondary">Toggle View</button>
+        </div>
+    </div>
+</nav>
+<main class="container">
+
+
+    <!-- Progress Modal -->
+    <div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="true"
+         data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="progressModalLabel">Uploading...</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="progress">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success message modal -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="successModalLabel">Success</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Operation completed successfully!
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="reloadButton">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% block content %}{% endblock %}
+</main>
+
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+<script>
+    document.getElementById('uploadFileForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
+
+        // Show the progress modal
+        const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+        progressModal.show();
+
+        xhr.upload.addEventListener('progress', function (event) {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                document.getElementById('progressBar').style.width = percentComplete + '%';
+            }
+        });
+
+        xhr.addEventListener('load', function () {
+            progressModal.hide();
+            if (xhr.status === 200) {
+                alert('File uploaded successfully');
+                const inputs = form.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.value = '';
+                });
+                window.location.reload();
+            } else {
+                alert('File upload failed');
+            }
+        });
+
+        xhr.open('POST', form.action);
+        xhr.send(formData);
+    });
+</script>
+
+{% block scripts %}{% endblock %}
+
+<script>
+    document.getElementById('toggleViewButton').addEventListener('click', function () {
+        const view1 = document.getElementById('view1');
+        const view2 = document.getElementById('view2');
+        view1.classList.toggle('d-none');
+        view2.classList.toggle('d-none');
+    });
+</script>
+</body>
+</html>

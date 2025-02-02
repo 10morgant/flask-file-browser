@@ -1,0 +1,155 @@
+{% extends "base.jinja2" %}
+{% import "macros.jinja2" as macros %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <!-- Upload File Modal -->
+    <div class="modal fade" id="uploadFileModal" tabindex="-1" aria-labelledby="uploadFileModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadFileModalLabel">Upload File</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="uploadFileForm" method="post" enctype="multipart/form-data"
+                          action="{{ url_for('upload_file') }}">
+                        <div class="mb-3">
+                            <label for="group" class="form-label">Group</label>
+                            <input class="form-select" list="groupList" id="group" name="group" required>
+                            <datalist id="groupList">
+                                {% for group in all_groups %}
+                                    <option value="{{ group.group }}">
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tool" class="form-label">Tool</label>
+                            <input class="form-control" list="toolList" id="tool" name="tool" required>
+                            <datalist id="toolList">
+                                <!-- Options will be populated dynamically using JavaScript -->
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label for="version" class="form-label">Version</label>
+                            <input class="form-control" type="text" id="version" name="version" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="fileName" class="form-label">File</label>
+                            <input class="form-control" type="file" id="fileName" name="file" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input class="form-control" type="text" id="name" name="name" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view1" class="accordion accordion-flush">
+        {% for group in groups %}
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#flush-collapse{{ loop.index }}" aria-expanded="false"
+                            aria-controls="flush-collapse{{ loop.index }}">
+                        {{ group.group }} ({{ group.tool_count }})
+                    </button>
+                </h2>
+                <div id="flush-collapse{{ loop.index }}" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <div class="accordion" id="childAccordion{{ loop.index }}">
+                            <div class="row row-cols-1 row-cols-md-3 g-4">
+                                {% for tool in group.tools %}
+                                    <div class="col">
+                                        <div class="card mb-3">
+                                            <div class="card-header">
+                                                {{ tool.name }} ({{ tool.version_count }})
+                                            </div>
+                                            <div class="card-body">
+                                                {{ macros.render_versions(group, tool) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div id="view2" class="accordion accordion-flush d-none">
+        {% for group in groups %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingGroup{{ loop.index }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapseGroup{{ loop.index }}" aria-expanded="false"
+                            aria-controls="collapseGroup{{ loop.index }}">
+                        {{ group.group }} ({{ group.tool_count }})
+                    </button>
+                </h2>
+                <div id="collapseGroup{{ loop.index }}" class="accordion-collapse collapse"
+                     aria-labelledby="headingGroup{{ loop.index }}">
+                    <div class="accordion-body">
+                        <div class="accordion nested-accordion" id="toolAccordion{{ loop.index }}">
+                            {% for tool in group.tools %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="headingTool{{ loop.index }}-{{ loop.index0 }}">
+                                        <button class="accordion-button collapsed" type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#collapseTool{{ loop.index }}-{{ loop.index0 }}"
+                                                aria-expanded="false"
+                                                aria-controls="collapseTool{{ loop.index }}-{{ loop.index0 }}">
+                                            {{ tool.name }} ({{ tool.version_count }})
+                                        </button>
+                                    </h2>
+                                    <div id="collapseTool{{ loop.index }}-{{ loop.index0 }}"
+                                         class="accordion-collapse collapse"
+                                         aria-labelledby="headingTool{{ loop.index }}-{{ loop.index0 }}">
+                                        <div class="accordion-body">
+                                            {{ macros.render_versions(group, tool) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+{% endblock %}
+
+{% block script %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const groupInput = document.getElementById('group');
+            const toolInput = document.getElementById('tool');
+            const toolList = document.getElementById('toolList');
+
+            groupInput.addEventListener('input', function () {
+                const selectedGroup = groupInput.value;
+                toolList.innerHTML = '';
+
+                const groups = {{ all_groups | tojson }};
+                const group = groups.find(g => g.group === selectedGroup);
+
+                if (group) {
+                    group.tools.forEach(tool => {
+                        const option = document.createElement('option');
+                        option.value = tool.name;
+                        toolList.appendChild(option);
+                    });
+                }
+            });
+        });
+    </script>
+{% endblock %}

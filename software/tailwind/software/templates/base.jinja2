@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>{% block title %}Software{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flowbite.min.css') }}"/>
+    {#    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}"/>#}
+
+    {#    <link rel="stylesheet" href="{{ url_for('static', filename='tabler/webfont/tabler-icons.min.css') }}"/>#}
+
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+
+        .banner {
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 35px;
+            margin-bottom: 0;
+            padding: 5px 5px;
+        }
+
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900">
+{% if notice_text %}
+{% endif %}
+<div class="banner bg-red-600">
+    <p>{{ notice_text }}</p>
+</div>
+
+
+<nav class="border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+    <div class=" flex flex-wrap items-center justify-between mx-md-1 p-4">
+        <span class="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">Software</span>
+
+        <div class="hidden w-full md:block md:w-auto" id="navbar-solid-bg">
+            <!-- button to upload new software -->
+            <button class="bg-blue-500 text-white px-4 py-2 rounded" id="toggleViewButton">
+                <i class="ti ti-upload"></i>
+                Upload
+            </button>
+        </div>
+    </div>
+</nav>
+
+
+<main class="container mx-auto py-4 ">
+
+    <!-- Progress Modal -->
+    <div class="modal hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center"
+         id="progressModal">
+        <div class="bg-white rounded-lg p-4">
+            <h5 class="text-lg font-bold mb-2">Uploading...</h5>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="progressBar" class="bg-blue-500 h-4 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success message modal -->
+    <div class="modal hidden fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center"
+         id="successModal">
+        <div class="bg-white rounded-lg p-4">
+            <h5 class="text-lg font-bold mb-2">Success</h5>
+            <div class="mb-4">Operation completed successfully!</div>
+            <button type="button" class="bg-blue-500 text-white px-4 py-2 rounded" id="reloadButton">OK</button>
+        </div>
+    </div>
+
+        {% block content %}{% endblock %}
+
+</main>
+
+<script src="{{ url_for('static', filename='js/flowbite.min.js') }}"></script>
+<script>
+
+    document.getElementById('uploadFileForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
+
+        // Show the progress modal
+        const progressModal = document.getElementById('progressModal');
+        progressModal.classList.remove('hidden');
+
+        xhr.upload.addEventListener('progress', function (event) {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                document.getElementById('progressBar').style.width = percentComplete + '%';
+            }
+        });
+
+        xhr.addEventListener('load', function () {
+            progressModal.classList.add('hidden');
+            if (xhr.status === 200) {
+                alert('File uploaded successfully');
+                const inputs = form.querySelectorAll('input');
+                inputs.forEach(input => {
+                    input.value = '';
+                });
+                window.location.reload();
+            } else {
+                alert('File upload failed');
+            }
+        });
+
+        xhr.open('POST', form.action);
+        xhr.send(formData);
+    });
+
+    document.getElementById('toggleViewButton').addEventListener('click', function () {
+        const view1 = document.getElementById('view1');
+        const view2 = document.getElementById('view2');
+        view1.classList.toggle('hidden');
+        view2.classList.toggle('hidden');
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const enableNameCheckbox = document.getElementById('enableName');
+        const nameInput = document.getElementById('name');
+
+        enableNameCheckbox.addEventListener('change', function () {
+            if (enableNameCheckbox.checked) {
+                nameInput.removeAttribute('disabled');
+            } else {
+                nameInput.setAttribute('disabled', 'disabled');
+            }
+        });
+
+        document.getElementById('uploadFileForm').addEventListener('submit', function (event) {
+            if (nameInput.disabled) {
+                nameInput.removeAttribute('name');
+            }
+        });
+    });
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>
