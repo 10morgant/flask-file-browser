@@ -8,6 +8,7 @@
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
+        {#font-family: 'JetBrains Mono', monospace;#}
         }
 
         a {
@@ -22,31 +23,38 @@
             align-items: center;
             height: 35px; /* Adjust the height as needed */
             margin-bottom: 0; /* Remove margin at the bottom */
-            padding: 3px 10px;
+            padding: 10px 3px 0px 10px;
         }
 
         .navbar {
             margin-top: 0; /* Remove margin at the top */
-            background-color: #001b72;
+        {#background-color: #2596be;#} background-color: #5e8d87;
         {##5988da;#} color: white;
         }
 
         .breadcrumb-item + .breadcrumb-item::before {
             color: rgba(255, 255, 255, .5) !important; /* Change this to your desired color */
         }
+
+        tr[data-href] {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-<div class="banner bg-danger">
-    <p>{{ notice_text }}</p>
-</div>
+{% if notice_text %}
+    <div class="banner bg-danger">
+        <p>{{ notice_text }}</p>
+    </div>
+{% endif %}
 <nav class="navbar">
     <div class="container-fluid">
         <a class="navbar-brand text-white" href="/">Files</a>
         <!-- Breadcrumb navigation -->
         <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb" class="text-white">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/" class="text-white-50">/files</a></li>
+                <li class="breadcrumb-item"><a href="/" class="{{ "text-white-50" if path != "/" else "text-white" }}">/files</a>
+                </li>
                 {% set ns = namespace(breadcrumb_path = '') %}
                 {% for p in path.split("/") %}
                     {% if p %}
@@ -63,11 +71,11 @@
             <!-- Buttons to trigger the modals -->
             <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 <i class="ti ti-upload"></i>
-{#                Upload File#}
+                {#                Upload File#}
             </button>
-            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#newFolderModal">
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newFolderModal">
                 <i class="ti ti-folder-plus"></i>
-{#                New Folder#}
+                {#                New Folder#}
             </button>
         </div>
     </div>
@@ -116,6 +124,12 @@
                             <label for="folderName" class="form-label">Folder Name</label>
                             <input class="form-control" type="text" id="folderName" name="folder_name" required>
                         </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="openFolder" name="open_folder">
+                            <label class="form-check-label" for="openFolder">
+                                Open folder after creation
+                            </label>
+                        </div>
                         <button type="submit" class="btn btn-primary">Create</button>
                     </form>
                 </div>
@@ -152,35 +166,42 @@
         </thead>
         <tbody>
         {% for file in list_files %}
-            <tr>
+            <tr data-href="{{ url_for('root', path=file.path) }}">
                 <td>
-                    <a href="{{ url_for('root', path=file.path) }}">
-                        <i class="{{ file.icon }}" style="color: {{ file.colour }}"></i>
-                        {{ file.name }}
-                    </a>
+                    <i class="{{ file.icon }}" style="color: {{ file.colour }}"></i>
+                    {{ file.name }}
                 </td>
                 <td class="px-3"></td> <!-- Empty column to create space -->
                 <td class="px-3 text-end">{{ file.size }}</td>
                 <td class="px-3 text-end">{{ file.last_modified }}</td>
             </tr>
         {% endfor %}
-
         </tbody>
     </table>
 </main>
 
 <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
 <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const rows = document.querySelectorAll('tr[data-href]');
+        rows.forEach(row => {
+            row.addEventListener('click', function () {
+                window.location.href = this.dataset.href;
+            });
+        });
+    });
+</script>
+<script>
     document.getElementById('uploadForm').addEventListener('submit', function (event) {
         event.preventDefault();
-        var form = event.target;
-        var formData = new FormData(form);
-        var xhr = new XMLHttpRequest();
+        const form = event.target;
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
 
         xhr.upload.addEventListener('progress', function (event) {
             if (event.lengthComputable) {
-                var percentComplete = (event.loaded / event.total) * 100;
-                var progressBar = document.getElementById('progressBar');
+                const percentComplete = (event.loaded / event.total) * 100;
+                const progressBar = document.getElementById('progressBar');
                 progressBar.style.width = percentComplete + '%';
                 progressBar.setAttribute('aria-valuenow', percentComplete);
             }
@@ -188,7 +209,7 @@
 
         xhr.addEventListener('load', function () {
             if (xhr.status === 200) {
-                var successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
                 successModal.show();
             } else {
                 alert('Upload failed');
@@ -201,14 +222,20 @@
 
     document.getElementById('newFolderForm').addEventListener('submit', function (event) {
         event.preventDefault();
-        var form = event.target;
-        var formData = new FormData(form);
-        var xhr = new XMLHttpRequest();
+        const form = event.target;
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
 
         xhr.addEventListener('load', function () {
             if (xhr.status === 200) {
-                var successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                successModal.show();
+                const currentPath = form.querySelector('input[name="current_path"]').value;
+                const folderName = form.querySelector('input[name="folder_name"]').value;
+                const openFolder = form.querySelector('input[name="open_folder"]').checked;
+                if (openFolder) {
+                    window.location.href = currentPath + '/' + folderName;
+                } else {
+                    window.location.reload();
+                }
             } else {
                 alert('Folder creation failed');
             }

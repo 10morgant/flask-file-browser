@@ -18,7 +18,7 @@ parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to run t
 parser.add_argument('--debug', action='store_true', help='Run the Flask app in debug mode')
 parser.add_argument('--enable-upload', action='store_true', help='Enable file uploading')
 parser.add_argument('--enable-new-folder', action='store_true', help='Enable new folder creation')
-parser.add_argument('--notice-text', type=str, default='Notice: We can put notices up here.',
+parser.add_argument('--notice-text', type=str, default='',
                     help='Text for the notice banner')
 args = parser.parse_args()
 
@@ -229,7 +229,7 @@ category_to_icon_and_color = {
     'log': ('ti ti-file-text', '#6c757d'),
     'pdf': ('ti ti-file-type-pdf', '#dc3545'),
     'image': ('ti ti-photo-filled', '#0dcaf0'),
-    'archive': ('ti ti-file-zip', '#6c757d'),
+    'archive': ('ti ti-file-zip', '#865e3c'),
     'xml': ('ti ti-file-type-xml', '#ff6600'),
     'latex': ('ti ti-tex', '#3D6117'),
     'music': ('ti ti-file-music', '#ff5733'),
