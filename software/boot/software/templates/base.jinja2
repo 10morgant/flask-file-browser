@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
     <title>{% block title %}Software{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"/>
@@ -13,7 +13,7 @@
 
         a {
             text-decoration: none;
-            color: white;
+            {#color: white;#}
         }
 
         .banner {
@@ -41,7 +41,7 @@
         }
 
         .accordion-item .accordion-button:hover {
-            background-color: #031633; /* Change this to your desired hover color */
+            background-color: #74b1ab; /* Change this to your desired hover color */
         }
 
         .accordion {
@@ -62,7 +62,7 @@
 {% endif %}
 <nav class="navbar">
     <div class="container-fluid">
-        <a class="navbar-brand text-white" href="/">Software</a>
+        <a class="navbar-brand text-white" href="/home">Software</a>
         <!-- Breadcrumb navigation -->
 
         <div class="d-flex">
@@ -71,7 +71,6 @@
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
                 Upload File
             </button>
-            <button id="toggleViewButton" class="btn btn-secondary">Toggle View</button>
         </div>
     </div>
 </nav>
@@ -157,13 +156,5 @@
 
 {% block scripts %}{% endblock %}
 
-<script>
-    document.getElementById('toggleViewButton').addEventListener('click', function () {
-        const view1 = document.getElementById('view1');
-        const view2 = document.getElementById('view2');
-        view1.classList.toggle('d-none');
-        view2.classList.toggle('d-none');
-    });
-</script>
 </body>
 </html>

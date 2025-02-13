@@ -41,8 +41,8 @@
                             <input class="form-control" type="file" id="fileName" name="file" required>
                         </div>
                         <div class="mb-3">
-                            <label for="name" class="form-label">Name</label>
-                            <input class="form-control" type="text" id="name" name="name" required>
+                            <label for="name" class="form-label">New file name (optional)</label>
+                            <input class="form-control" type="text" id="name" name="name">
                         </div>
                         <button type="submit" class="btn btn-primary">Upload</button>
                     </form>
@@ -69,7 +69,9 @@
                                     <div class="col">
                                         <div class="card mb-3">
                                             <div class="card-header">
-                                                {{ tool.name }} ({{ tool.version_count }})
+                                                <a href="{{ url_for('show_all_versions', group=group.group, tool=tool.name) }}">
+                                                    {{ tool.name }} ({{ tool.version_count }})
+                                                </a>
                                             </div>
                                             <div class="card-body">
                                                 {{ macros.render_versions(group, tool) }}

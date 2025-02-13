@@ -3,13 +3,56 @@
 {% block title %}All Versions{% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>{{ tool }} - All Versions</h1>
-    <ul>
-        {% for version in versions %}
-        <li>{{ version }}</li>
-        {% endfor %}
-    </ul>
-    <a href="{{ url_for('root') }}" class="btn btn-primary">Back</a>
-</div>
+    <div class="container">
+        <h1>{{ tool.name }}</h1>
+
+        <table class="table">
+            <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">File</th>
+                <th scope="col">Version</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            {% for version in tool.versions %}
+                {% set link_parts = version.link.split('/') %}
+                {% if link_parts|length == 4 %}
+                    <tr data-href="{{ url_for('download_file', group=link_parts[0], tool=link_parts[1], version=link_parts[2], name=link_parts[3]) }}">
+                        <th scope="row"> {{ loop.index }} </th>
+                        <td>
+                            <a href="{{ url_for('download_file', group=link_parts[0], tool=link_parts[1], version=link_parts[2], name=link_parts[3]) }}">
+                                {{ version.name }}
+                            </a>
+                        </td>
+                        <td>
+                            {{ version.version }}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <th scope="row" class="text-danger">{{ loop.index }}</th>
+                        <td class="text-danger">{{ version.name }}</td>
+                        <td>
+                            <a class="text-danger"
+                               href="{{ url_for('download_file', group=link_parts[0], tool=link_parts[1], version=link_parts[2], name=link_parts[3]) }}">
+                                {{ version.version }} </a>
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const rows = document.querySelectorAll('tr[data-href]');
+            rows.forEach(row => {
+                row.addEventListener('click', function () {
+                    window.location.href = row.getAttribute('data-href');
+                });
+            });
+        });
+    </script>
 {% endblock %}
