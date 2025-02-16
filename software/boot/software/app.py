@@ -1,25 +1,18 @@
-import argparse
 import os
 
 from flask import Flask, render_template, request, send_from_directory
+from packaging.version import Version, InvalidVersion
+from rich import print as rprint
 from werkzeug.utils import secure_filename
 
-# Parse command line arguments
-parser = argparse.ArgumentParser(
-    description='File Browser Application',
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter
-)
-parser.add_argument('base', nargs='?', default='/home/tim/Github/personal/file_browser/test/software/',
-                    help='Base location to serve files from')
-parser.add_argument('--port', type=int, default=5000, help='Port to run the Flask app on')
-parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to run the Flask app on')
-parser.add_argument('--debug', action='store_true', help='Run the Flask app in debug mode')
-parser.add_argument('--enable-upload', action='store_true', help='Enable file uploading')
-parser.add_argument('--enable-new-folder', action='store_true', help='Enable new folder creation')
-parser.add_argument('--notice-text', type=str, default='',
-                    help='Text for the notice banner')
-args = parser.parse_args()
-args.base = '/home/tim/Github/personal/file_browser/test/'
+# Read environment variables
+base = os.getenv('BASE', 'files')
+port = int(os.getenv('FLASK_PORT', 5000))
+host = os.getenv('FLASK_HOST', '0.0.0.0')
+debug = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
+enable_upload = os.getenv('ENABLE_UPLOAD', 'False').lower() in ('true', '1', 't')
+enable_new_folder = os.getenv('ENABLE_NEW_FOLDER', 'False').lower() in ('true', '1', 't')
+notice_text = os.getenv('NOTICE_TEXT', '')
 
 software_location = "software"
 
@@ -42,7 +35,7 @@ def upload_file():
     if not tool or not group or not version:
         return 'Missing tool, group, or version', 400
 
-    base_location = args.base
+    base_location = base
     upload_dir = os.path.join(base_location, software_location, group, tool, version)
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -65,6 +58,17 @@ def get_tool(group_name: str, group_path: str, tool_name: str) -> dict:
                                      "name": file_name,
                                      "version": version_name,
                                      "link": f"{group_name}/{tool_name}/{version_name}/{file_name}"})
+
+        def parse_version(version):
+            try:
+                v = Version(version)
+                rprint(f"Version: {v}")
+                return v
+            except InvalidVersion:
+                rprint(f"Invalid version: {version}")
+                return Version("0.0.0")
+
+        versions.sort(key=lambda x: parse_version(x["version"]))
         return {
             'name': tool_name,
             'versions': versions,
@@ -73,7 +77,7 @@ def get_tool(group_name: str, group_path: str, tool_name: str) -> dict:
 
 
 def get_groups():
-    base_location = args.base
+    base_location = base
     test_dir = os.path.join(base_location, software_location)
 
     if not os.path.exists(test_dir):
@@ -95,13 +99,13 @@ def get_groups():
                 'tool_count': len(tools)
             })
 
-    print(groups)
+    rprint(groups)
     return groups
 
 
-@app.route('/view/<group>/<tool>', methods=['GET'])
+@app.route('/<group>/<tool>', methods=['GET'])
 def show_all_versions(group, tool):
-    base_location = args.base
+    base_location = base
     tool_path = os.path.join(base_location, software_location, group, tool)
 
     if not os.path.exists(tool_path):
@@ -114,12 +118,12 @@ def show_all_versions(group, tool):
     return render_template('all_versions.jinja2',
                            group=group,
                            tool=tool_data,
-                           notice_text=args.notice_text)
+                           notice_text=notice_text)
 
 
 @app.route('/<group>/<tool>/<version>/<name>', methods=['GET'])
 def download_file(group, tool, version, name):
-    base_location = args.base
+    base_location = base
     file_path = os.path.join(base_location, software_location, group, tool, version, name)
 
     app.logger.debug(f"Download request for: {file_path}")
@@ -132,16 +136,16 @@ def download_file(group, tool, version, name):
                                as_attachment=True)
 
 
-@app.route('/home/', methods=['GET'])
-@app.route('/home/<path:path>', methods=['GET'])
+@app.route('/', methods=['GET'])
+@app.route('/<path:path>', methods=['GET'])
 def root(path="/"):
-    base_location = args.base
+    base_location = base
     loc = os.path.join(base_location, path.lstrip('/'))
     print(loc)
 
     groups = get_groups()
-    return render_template('index.jinja2', path=path, groups=groups, notice_text=args.notice_text, all_groups=groups)
+    return render_template('index.jinja2', path=path, groups=groups, notice_text=notice_text, all_groups=groups)
 
 
 if __name__ == '__main__':
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    app.run(host=host, port=port, debug=debug)

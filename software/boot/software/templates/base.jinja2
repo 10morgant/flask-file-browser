@@ -13,7 +13,7 @@
 
         a {
             text-decoration: none;
-            {#color: white;#}
+        {#color: white;#}
         }
 
         .banner {
@@ -52,6 +52,12 @@
         .nested-accordion .accordion-body {
             background-color: #2a2e33; /* Change this to your desired background color */
         }
+
+    @media (min-width: 1400px) {
+        main.container {
+            max-width: 1400px; /* Adjust the max-width as needed */
+        }
+    }
     </style>
 </head>
 <body>
@@ -68,8 +74,13 @@
         <div class="d-flex">
             <!-- Buttons to trigger the modals -->
             <!-- Button to trigger the upload file modal -->
+            {% if groups %}
+                <button id="expandAll" type="button" class="btn btn-secondary me-2">
+                    <i class="ti ti-chevrons-down"></i>
+                </button>
+            {% endif %}
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
-                Upload File
+                <i class="ti ti-upload"></i>
             </button>
         </div>
     </div>

@@ -1,6 +1,7 @@
 {% macro render_versions(group, tool) %}
     <ul>
-        {% for version in tool.versions %}
+        {% set n = 5 %} {# Set the number of versions to display #}
+        {% for version in ((tool.versions| reverse | list)[:n] if tool.versions | length >= n else (tool.versions| reverse | list)) %}
             {% set link_parts = version.link.split('/') %}
             {% if link_parts|length == 4 %}
                 <li>
@@ -11,7 +12,7 @@
             {% endif %}
         {% endfor %}
     </ul>
-    {% if tool.versions|length > 1 %}
+    {% if tool.versions|length > n %}
         <a href="{{ url_for('show_all_versions', group=group.group, tool=tool.name) }}"
            class="btn btn-primary">Show All Versions</a>
     {% endif %}

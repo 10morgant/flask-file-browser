@@ -16,12 +16,12 @@
                 <div class="modal-body">
                     <form id="uploadFileForm" method="post" enctype="multipart/form-data"
                           action="{{ url_for('upload_file') }}">
+
                         <div class="mb-3">
                             <label for="group" class="form-label">Group</label>
                             <input class="form-select" list="groupList" id="group" name="group" required>
                             <datalist id="groupList">
                                 {% for group in all_groups %}
-                                    <option value="{{ group.group }}">
                                 {% endfor %}
                             </datalist>
                         </div>
@@ -55,13 +55,16 @@
         {% for group in groups %}
             <div class="accordion-item">
                 <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#flush-collapse{{ loop.index }}" aria-expanded="false"
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#flush-collapse{{ loop.index }}"
+                            aria-expanded="{% if loop.first %}true{% else %}false{% endif %}"
                             aria-controls="flush-collapse{{ loop.index }}">
                         {{ group.group }} ({{ group.tool_count }})
                     </button>
                 </h2>
-                <div id="flush-collapse{{ loop.index }}" class="accordion-collapse collapse">
+                <div id="flush-collapse{{ loop.index }}"
+                     class="accordion-collapse collapse {% if loop.first %}show{% endif %}">
                     <div class="accordion-body">
                         <div class="accordion" id="childAccordion{{ loop.index }}">
                             <div class="row row-cols-1 row-cols-md-3 g-4">
@@ -72,6 +75,10 @@
                                                 <a href="{{ url_for('show_all_versions', group=group.group, tool=tool.name) }}">
                                                     {{ tool.name }} ({{ tool.version_count }})
                                                 </a>
+                                                <button class="btn btn-secondary btn-sm float-end upload-btn"
+                                                        data-group="{{ group.group }}" data-tool="{{ tool.name }}"
+                                                        data-bs-toggle="modal" data-bs-target="#uploadFileModal">Upload
+                                                </button>
                                             </div>
                                             <div class="card-body">
                                                 {{ macros.render_versions(group, tool) }}
@@ -87,55 +94,16 @@
         {% endfor %}
     </div>
 
-    <div id="view2" class="accordion accordion-flush d-none">
-        {% for group in groups %}
-            <div class="accordion-item">
-                <h2 class="accordion-header" id="headingGroup{{ loop.index }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#collapseGroup{{ loop.index }}" aria-expanded="false"
-                            aria-controls="collapseGroup{{ loop.index }}">
-                        {{ group.group }} ({{ group.tool_count }})
-                    </button>
-                </h2>
-                <div id="collapseGroup{{ loop.index }}" class="accordion-collapse collapse"
-                     aria-labelledby="headingGroup{{ loop.index }}">
-                    <div class="accordion-body">
-                        <div class="accordion nested-accordion" id="toolAccordion{{ loop.index }}">
-                            {% for tool in group.tools %}
-                                <div class="accordion-item">
-                                    <h2 class="accordion-header" id="headingTool{{ loop.index }}-{{ loop.index0 }}">
-                                        <button class="accordion-button collapsed" type="button"
-                                                data-bs-toggle="collapse"
-                                                data-bs-target="#collapseTool{{ loop.index }}-{{ loop.index0 }}"
-                                                aria-expanded="false"
-                                                aria-controls="collapseTool{{ loop.index }}-{{ loop.index0 }}">
-                                            {{ tool.name }} ({{ tool.version_count }})
-                                        </button>
-                                    </h2>
-                                    <div id="collapseTool{{ loop.index }}-{{ loop.index0 }}"
-                                         class="accordion-collapse collapse"
-                                         aria-labelledby="headingTool{{ loop.index }}-{{ loop.index0 }}">
-                                        <div class="accordion-body">
-                                            {{ macros.render_versions(group, tool) }}
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-
 {% endblock %}
 
-{% block script %}
+{% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const groupInput = document.getElementById('group');
             const toolInput = document.getElementById('tool');
             const toolList = document.getElementById('toolList');
+            const uploadFileForm = document.getElementById('uploadFileForm');
+            const uploadFileModal = new bootstrap.Modal(document.getElementById('uploadFileModal'));
 
             groupInput.addEventListener('input', function () {
                 const selectedGroup = groupInput.value;
@@ -151,6 +119,58 @@
                         toolList.appendChild(option);
                     });
                 }
+            });
+
+            const expandAllButton = document.getElementById('expandAll');
+            expandAllButton.addEventListener('click', function () {
+                const accordions = document.querySelectorAll('.accordion-collapse');
+                accordions.forEach(accordion => {
+                    if (!accordion.classList.contains('show')) {
+                        accordion.classList.add('show');
+                    }
+                });
+            });
+
+            const uploadButtons = document.querySelectorAll('.upload-btn');
+            uploadButtons.forEach(button => {
+                button.addEventListener('click', function () {
+                    const group = button.getAttribute('data-group');
+                    const tool = button.getAttribute('data-tool');
+                    groupInput.value = group;
+                    toolInput.value = tool;
+                });
+            });
+
+            // Clear form after submission
+            uploadFileForm.addEventListener('submit', function (event) {
+                event.preventDefault();
+                const formData = new FormData(uploadFileForm);
+                const xhr = new XMLHttpRequest();
+
+                // Show the progress modal
+                const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+                progressModal.show();
+
+                xhr.upload.addEventListener('progress', function (event) {
+                    if (event.lengthComputable) {
+                        const percentComplete = (event.loaded / event.total) * 100;
+                        document.getElementById('progressBar').style.width = percentComplete + '%';
+                    }
+                });
+
+                xhr.addEventListener('load', function () {
+                    progressModal.hide();
+                    if (xhr.status === 200) {
+                        alert('File uploaded successfully');
+                        uploadFileForm.reset();
+                        window.location.reload();
+                    } else {
+                        alert('File upload failed');
+                    }
+                });
+
+                xhr.open('POST', uploadFileForm.action);
+                xhr.send(formData);
             });
         });
     </script>

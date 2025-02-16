@@ -16,7 +16,7 @@
             </thead>
             <tbody>
 
-            {% for version in tool.versions %}
+            {% for version in tool.versions | reverse %}
                 {% set link_parts = version.link.split('/') %}
                 {% if link_parts|length == 4 %}
                     <tr data-href="{{ url_for('download_file', group=link_parts[0], tool=link_parts[1], version=link_parts[2], name=link_parts[3]) }}">
