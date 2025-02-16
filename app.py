@@ -1,4 +1,3 @@
-import argparse
 import os
 from datetime import datetime
 from pathlib import Path
@@ -7,20 +6,14 @@ import humanize
 from flask import Flask, render_template, send_from_directory, redirect, request, url_for
 from werkzeug.utils import secure_filename
 
-# Parse command line arguments
-parser = argparse.ArgumentParser(
-    description='File Browser Application',
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter
-)
-parser.add_argument('base', nargs='?', default=os.getcwd(), help='Base location to serve files from')
-parser.add_argument('--port', type=int, default=5000, help='Port to run the Flask app on')
-parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to run the Flask app on')
-parser.add_argument('--debug', action='store_true', help='Run the Flask app in debug mode')
-parser.add_argument('--enable-upload', action='store_true', help='Enable file uploading')
-parser.add_argument('--enable-new-folder', action='store_true', help='Enable new folder creation')
-parser.add_argument('--notice-text', type=str, default='',
-                    help='Text for the notice banner')
-args = parser.parse_args()
+# Read environment variables
+base = os.getenv('BASE', "files")
+port = int(os.getenv('FLASK_PORT', 5000))
+host = os.getenv('FLASK_HOST', '127.0.0.1')
+debug = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
+enable_upload = os.getenv('ENABLE_UPLOAD', 'False').lower() in ('true', '1', 't')
+enable_new_folder = os.getenv('ENABLE_NEW_FOLDER', 'False').lower() in ('true', '1', 't')
+notice_text = os.getenv('NOTICE_TEXT', '')
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -269,9 +262,11 @@ def get_unique_filename(directory, filename):
 
 @app.route('/new_folder', methods=['POST'])
 def new_folder():
+    if not enable_new_folder:
+        return 'New folder creation is disabled', 403
     current_path = request.form.get('current_path', '/')
     folder_name = request.form.get('folder_name')
-    base_location = args.base
+    base_location = base
     new_folder_path = Path(base_location) / current_path.lstrip('/') / folder_name
 
     try:
@@ -281,25 +276,33 @@ def new_folder():
         return str(e), 500
 
 
+def handle_file_upload(request, base_location):
+    if not enable_upload:
+        return 'File upload is disabled', 403
+
+    if 'file' not in request.files:
+        return 'No file part'
+
+    file = request.files['file']
+    if file.filename == '':
+        return 'No selected file'
+    if file:
+        current_path = request.form.get('current_path', '/')
+        upload_dir = os.path.join(base_location, current_path.lstrip('/'))
+        filename = secure_filename(file.filename)
+        unique_filename = get_unique_filename(upload_dir, filename)
+        file.save(os.path.join(upload_dir, unique_filename))
+        return redirect(url_for('root', path=current_path))
+
+
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def root(path="/"):
-    base_location = args.base
+    base_location = base
     loc = os.path.join(base_location, path.lstrip('/'))
 
     if request.method == 'POST':
-        if 'file' not in request.files:
-            return 'No file part'
-        file = request.files['file']
-        if file.filename == '':
-            return 'No selected file'
-        if file:
-            current_path = request.form.get('current_path', '/')
-            upload_dir = os.path.join(base_location, current_path.lstrip('/'))
-            filename = secure_filename(file.filename)
-            unique_filename = get_unique_filename(upload_dir, filename)
-            file.save(os.path.join(upload_dir, unique_filename))
-            return redirect(url_for('root', path=current_path))
+        return handle_file_upload(request, base_location)
 
     is_folder = os.path.isdir(loc)
     if is_folder:
@@ -332,10 +335,17 @@ def root(path="/"):
                 'icon': 'ti ti-corner-up-left-double',
                 'colour': '#0d6efd'
             })
-        return render_template('index.jinja2', path=path, list_files=dir_contents, notice_text=args.notice_text)
+        return render_template(
+            'index.jinja2',
+            path=path,
+            list_files=dir_contents,
+            notice_text=notice_text,
+            enable_upload=enable_upload,
+            enable_new_folder=enable_new_folder
+        )
     else:
         return send_from_directory(base_location, path)
 
 
 if __name__ == '__main__':
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    app.run(host=host, port=port, debug=debug)

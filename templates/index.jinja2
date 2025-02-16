@@ -69,92 +69,103 @@
         </nav>
         <div class="d-flex">
             <!-- Buttons to trigger the modals -->
-            <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                <i class="ti ti-upload"></i>
-                {#                Upload File#}
-            </button>
-            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newFolderModal">
-                <i class="ti ti-folder-plus"></i>
-                {#                New Folder#}
-            </button>
+            {% if enable_upload %}
+                <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="ti ti-upload"></i>
+                    {#                Upload File#}
+                </button>
+            {% endif %}
+            {% if enable_new_folder %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newFolderModal">
+                    <i class="ti ti-folder-plus"></i>
+                    {#                New Folder#}
+                </button>
+            {% endif %}
         </div>
     </div>
 </nav>
 <main class="container">
-    <!-- Upload form modal -->
-    <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="uploadModalLabel">Upload File</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="uploadForm" method="post" enctype="multipart/form-data">
-                        <input type="hidden" name="current_path" value="{{ path }}">
-                        <div class="mb-3">
-                            <label for="file" class="form-label">Upload file</label>
-                            <input class="form-control" type="file" id="file" name="file">
-                        </div>
-                        <button type="submit" class="btn btn-primary">Upload</button>
-                    </form>
+    {% if enable_upload %}
+        <!-- Upload form modal -->
+        <div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="uploadModalLabel">Upload File</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="uploadForm" method="post" enctype="multipart/form-data">
+                            <input type="hidden" name="current_path" value="{{ path }}">
+                            <div class="mb-3">
+                                <label for="file" class="form-label">Upload file</label>
+                                <input class="form-control" type="file" id="file" name="file">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload</button>
+                        </form>
 
-                    <div class="progress mt-3">
-                        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;"
-                             aria-valuenow="0"
-                             aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress mt-3">
+                            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;"
+                                 aria-valuenow="0"
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- New folder form modal -->
-    <div class="modal fade" id="newFolderModal" tabindex="-1" aria-labelledby="newFolderModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="newFolderModalLabel">New Folder</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="newFolderForm" method="post" action="{{ url_for('new_folder') }}">
-                        <input type="hidden" name="current_path" value="{{ path }}">
-                        <div class="mb-3">
-                            <label for="folderName" class="form-label">Folder Name</label>
-                            <input class="form-control" type="text" id="folderName" name="folder_name" required>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="openFolder" name="open_folder">
-                            <label class="form-check-label" for="openFolder">
-                                Open folder after creation
-                            </label>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Create</button>
-                    </form>
+    {% endif %}
+    {% if enable_new_folder %}
+        <!-- New folder form modal -->
+        <div class="modal fade" id="newFolderModal" tabindex="-1" aria-labelledby="newFolderModalLabel"
+             aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="newFolderModalLabel">New Folder</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="newFolderForm" method="post" action="{{ url_for('new_folder') }}">
+                            <input type="hidden" name="current_path" value="{{ path }}">
+                            <div class="mb-3">
+                                <label for="folderName" class="form-label">Folder Name</label>
+                                <input class="form-control" type="text" id="folderName" name="folder_name" required>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="openFolder" name="open_folder">
+                                <label class="form-check-label" for="openFolder">
+                                    Open folder after creation
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Create</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Success message modal -->
-    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="successModalLabel">Success</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    Operation completed successfully!
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="reloadButton">OK</button>
+    {% endif %}
+    {% if enable_upload or enable_new_folder %}
+        <!-- Success message modal -->
+        <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="successModalLabel">Success</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Operation completed successfully!
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="reloadButton">OK</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
+    {% endif %}
     <table class="table table-hover mt-3">
         <thead>
         <tr>
@@ -191,63 +202,71 @@
         });
     });
 </script>
-<script>
-    document.getElementById('uploadForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-        const form = event.target;
-        const formData = new FormData(form);
-        const xhr = new XMLHttpRequest();
+{% if enable_upload %}
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const xhr = new XMLHttpRequest();
 
-        xhr.upload.addEventListener('progress', function (event) {
-            if (event.lengthComputable) {
-                const percentComplete = (event.loaded / event.total) * 100;
-                const progressBar = document.getElementById('progressBar');
-                progressBar.style.width = percentComplete + '%';
-                progressBar.setAttribute('aria-valuenow', percentComplete);
-            }
-        });
-
-        xhr.addEventListener('load', function () {
-            if (xhr.status === 200) {
-                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                successModal.show();
-            } else {
-                alert('Upload failed');
-            }
-        });
-
-        xhr.open('POST', form.action);
-        xhr.send(formData);
-    });
-
-    document.getElementById('newFolderForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-        const form = event.target;
-        const formData = new FormData(form);
-        const xhr = new XMLHttpRequest();
-
-        xhr.addEventListener('load', function () {
-            if (xhr.status === 200) {
-                const currentPath = form.querySelector('input[name="current_path"]').value;
-                const folderName = form.querySelector('input[name="folder_name"]').value;
-                const openFolder = form.querySelector('input[name="open_folder"]').checked;
-                if (openFolder) {
-                    window.location.href = currentPath + '/' + folderName;
-                } else {
-                    window.location.reload();
+            xhr.upload.addEventListener('progress', function (event) {
+                if (event.lengthComputable) {
+                    const percentComplete = (event.loaded / event.total) * 100;
+                    const progressBar = document.getElementById('progressBar');
+                    progressBar.style.width = percentComplete + '%';
+                    progressBar.setAttribute('aria-valuenow', percentComplete);
                 }
-            } else {
-                alert('Folder creation failed');
-            }
+            });
+
+            xhr.addEventListener('load', function () {
+                if (xhr.status === 200) {
+                    const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                    successModal.show();
+                } else {
+                    alert('Upload failed');
+                }
+            });
+
+            xhr.open('POST', form.action);
+            xhr.send(formData);
         });
+    </script>
+{% endif %}
+{% if enable_new_folder %}
+    <script>
+        document.getElementById('newFolderForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            const xhr = new XMLHttpRequest();
 
-        xhr.open('POST', form.action);
-        xhr.send(formData);
-    });
+            xhr.addEventListener('load', function () {
+                if (xhr.status === 200) {
+                    const currentPath = form.querySelector('input[name="current_path"]').value;
+                    const folderName = form.querySelector('input[name="folder_name"]').value;
+                    const openFolder = form.querySelector('input[name="open_folder"]').checked;
+                    if (openFolder) {
+                        window.location.href = currentPath + '/' + folderName;
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    alert('Folder creation failed');
+                }
+            });
 
-    document.getElementById('reloadButton').addEventListener('click', function () {
-        window.location.reload();
-    });
-</script>
+            xhr.open('POST', form.action);
+            xhr.send(formData);
+        });
+    </script>
+{% endif %}
+{% if enable_upload or enable_new_folder %}
+    <script>
+        document.getElementById('reloadButton').addEventListener('click', function () {
+            window.location.reload();
+        });
+    </script>
+{% endif %}
 </body>
 </html>
