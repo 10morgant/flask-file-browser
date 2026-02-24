@@ -1,6 +1,6 @@
+import json
 import logging
 import os
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -279,6 +279,51 @@ def get_unique_filename(directory, filename):
     return new_filename
 
 
+class JsonLogFormatter(logging.Formatter):
+    """Emit one-line JSON suitable for Loki/Grafana parsing.
+
+    - If the log message is a dict, it is embedded as a JSON object (not stringified).
+    - If the log message is a string, it is stored under "message".
+    - Any attributes passed via logger(..., extra={...}) are merged into the payload.
+    """
+
+    # Attributes that belong to the LogRecord, not user-provided structured fields
+    _reserved = {
+        'name', 'msg', 'args', 'levelname', 'levelno', 'pathname', 'filename', 'module',
+        'exc_info', 'exc_text', 'stack_info', 'lineno', 'funcName', 'created', 'msecs',
+        'relativeCreated', 'thread', 'threadName', 'processName', 'process',
+    }
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            'timestamp': datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            'level': record.levelname,
+            'logger': record.name,
+        }
+
+        # Merge in any extra fields
+        for k, v in record.__dict__.items():
+            if k in self._reserved:
+                continue
+            if k.startswith('_'):
+                continue
+            payload[k] = v
+
+        # Handle record message
+        msg = record.msg
+        if isinstance(msg, dict):
+            # Put dict keys at top-level (keeps table columns simple)
+            payload.update(msg)
+            payload.setdefault('message', 'request')
+        else:
+            payload['message'] = record.getMessage()
+
+        if record.exc_info:
+            payload['exc_info'] = self.formatException(record.exc_info)
+
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+
 def setup_loki_logger(loki_url: str) -> logging.Logger:
     """Set up Loki logging handler with JSON formatting."""
     logger = logging.getLogger('files_server')
@@ -301,11 +346,8 @@ def setup_loki_logger(loki_url: str) -> logging.Logger:
         version="1",
     )
 
-    # Use a JSON-style formatter
-    formatter = logging.Formatter(
-        '{"message": "%(message)s", "level": "%(levelname)s", "logger": "%(name)s"}'
-    )
-    loki_handler.setFormatter(formatter)
+    # Ensure %(message)s is always valid JSON (not Python dict repr)
+    loki_handler.setFormatter(JsonLogFormatter())
     logger.addHandler(loki_handler)
 
     return logger
@@ -319,13 +361,7 @@ def log_request_info(endpoint, path, method, status_code=None, **kwargs):
     if not loki_logger.handlers:
         return  # Skip if Loki logging is not configured
 
-    # Get the real client IP address (accounting for proxies)
-    # ProxyFix middleware should handle this, but we'll be explicit
-    real_ip = request.headers.get('X-Real-IP') or \
-              request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
-              request.remote_addr
-    print(request.headers.get('X-Real-IP'), request.headers.get('X-Forwarded-For', '').split(',')[0].strip())
-    print(f"Logging request: {method} {request.path} from {real_ip}")
+    real_ip = (request.access_route[0] if request.access_route else request.remote_addr)
 
     log_data = {
         'timestamp': datetime.now(timezone.utc).isoformat(),
@@ -335,10 +371,10 @@ def log_request_info(endpoint, path, method, status_code=None, **kwargs):
         'remote_addr': real_ip,
         'user_agent': request.headers.get('User-Agent', ''),
         'referrer': request.referrer or '',
-        # Add proxy debugging info
         'x_forwarded_for': request.headers.get('X-Forwarded-For', ''),
         'x_real_ip': request.headers.get('X-Real-IP', ''),
-        'request_remote_addr': request.remote_addr,  # What Flask sees after ProxyFix
+        'request_remote_addr': request.remote_addr,
+        'access_route': list(request.access_route),
     }
 
     if status_code:
@@ -347,14 +383,15 @@ def log_request_info(endpoint, path, method, status_code=None, **kwargs):
     # Add any additional kwargs
     log_data.update(kwargs)
 
-    loki_logger.info(json.dumps(log_data))
+    # LokiHandler formatter expects %(message)s to be text.
+    loki_logger.info(log_data)
 
 
 @app.route('/new_folder', methods=['POST'])
 def new_folder():
     if not enable_new_folder:
         log_request_info('new_folder', request.form.get('current_path', '/'), 'POST',
-                        status_code=403, error='New folder creation is disabled')
+                         status_code=403, error='New folder creation is disabled')
         return 'New folder creation is disabled', 403
     current_path = request.form.get('current_path', '/')
     folder_name = request.form.get('folder_name')
@@ -364,30 +401,30 @@ def new_folder():
     try:
         new_folder_path.mkdir(parents=True, exist_ok=True)
         log_request_info('new_folder', current_path, 'POST',
-                        status_code=200, folder_name=folder_name,
-                        full_path=str(new_folder_path))
+                         status_code=200, folder_name=folder_name,
+                         full_path=str(new_folder_path))
         return '', 200
     except Exception as e:
         log_request_info('new_folder', current_path, 'POST',
-                        status_code=500, error=str(e), folder_name=folder_name)
+                         status_code=500, error=str(e), folder_name=folder_name)
         return str(e), 500
 
 
 def handle_file_upload(request, base_location):
     if not enable_upload:
         log_request_info('upload', request.form.get('current_path', '/'), 'POST',
-                        status_code=403, error='File upload is disabled')
+                         status_code=403, error='File upload is disabled')
         return 'File upload is disabled', 403
 
     if 'file' not in request.files:
         log_request_info('upload', request.form.get('current_path', '/'), 'POST',
-                        status_code=400, error='No file part')
+                         status_code=400, error='No file part')
         return 'No file part'
 
     file = request.files['file']
     if file.filename == '':
         log_request_info('upload', request.form.get('current_path', '/'), 'POST',
-                        status_code=400, error='No selected file')
+                         status_code=400, error='No selected file')
         return 'No selected file'
     if file:
         current_path = request.form.get('current_path', '/')
@@ -396,32 +433,26 @@ def handle_file_upload(request, base_location):
         unique_filename = get_unique_filename(upload_dir, filename)
         file.save(os.path.join(upload_dir, unique_filename))
         log_request_info('upload', current_path, 'POST',
-                        status_code=200, filename=unique_filename,
-                        original_filename=filename, upload_dir=upload_dir)
+                         status_code=200, filename=unique_filename,
+                         original_filename=filename, upload_dir=upload_dir)
         return redirect(url_for('root', path=current_path))
 
 
-@app.route("/api/", methods=['GET'])
-@app.route("/api/<path:path>", methods=['GET'])
-def api_list(path="/", include_dots=False, sort_by=None):
+def _get_folder(path, include_dots, sort_by):
     base_location = Path(base)
     loc = base_location / path.lstrip('/')
-
-    if sort_by is None:
-        sort_by = request.args.get('sort_by', 'date')
-
-    sort_function = {
-        'name': lambda y: y.name.lower(),
-        'date': lambda y: y.stat().st_mtime,
-        'size': lambda y: y.stat().st_size,
-    }.get(sort_by.removesuffix("_desc"), lambda y: y.name.lower())
-
-    # Determine if we need reverse sorting
-    reverse_sort = sort_by.endswith('_desc')
 
     if loc.is_dir():
         list_files = list(loc.iterdir())
         dir_contents = []
+
+        sort_function = {
+            'name': lambda y: y.name.lower(),
+            'date': lambda y: y.stat().st_mtime,
+            'size': lambda y: y.stat().st_size,
+        }.get(sort_by.removesuffix("_desc"), lambda y: y.name.lower())
+        reverse_sort = sort_by.endswith('_desc')
+
         list_files.sort(key=lambda x: (not x.is_dir(), x.name[0] != ".", sort_function(x)), reverse=reverse_sort)
         for file_path in list_files:
             isdir = file_path.is_dir()
@@ -451,15 +482,25 @@ def api_list(path="/", include_dots=False, sort_by=None):
                 'colour': '#0d6efd',
                 'url': url_for('root', path='/'.join(path.split('/')[:-1]))
             })
+        return dir_contents
+    else:
+        return None
+
+
+@app.route("/api/", methods=['GET'])
+@app.route("/api/<path:path>", methods=['GET'])
+def api_list(path="/"):
+    dir_contents = _get_folder(path, False, 'date')
+    if dir_contents is not None:
         log_request_info('api_list', path, 'GET',
-                        status_code=200, is_directory=True,
-                        file_count=len(dir_contents), sort_by=sort_by)
-        return {'path': path, 'contents': dir_contents, 'total': len(dir_contents), 'sort_by': sort_by}
+                         status_code=200, is_directory=True,
+                         file_count=len(dir_contents), sort_by='date')
+        return {'path': path, 'contents': dir_contents, 'total': len(dir_contents), 'sort_by': 'date'}
     else:
         log_request_info('api_list', path, 'GET',
-                        status_code=200, is_directory=False,
-                        resource_type='file')
-        return send_from_directory(base_location, path)
+                         status_code=200, is_directory=False,
+                         resource_type='file')
+        return send_from_directory(base, path)
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -471,14 +512,16 @@ def root(path="/"):
     if request.method == 'POST':
         return handle_file_upload(request, base_location)
 
+    clean_path = f"/{path}".replace('//', '/')
+
     if os.path.isdir(loc):
         sort_by = request.args.get('sort_by', 'name')
-        files = api_list(path, include_dots=True, sort_by=sort_by).get('contents', [])
+        files = _get_folder(path, include_dots=True, sort_by=sort_by)
         dir_contents = files
 
-        log_request_info('root', path, 'GET',
-                        status_code=200, is_directory=True,
-                        file_count=len(dir_contents), sort_by=sort_by)
+        log_request_info('root', clean_path, 'GET',
+                         status_code=200, is_directory=True,
+                         file_count=len(dir_contents), sort_by=sort_by)
 
         return render_template(
             'index.jinja2',
@@ -491,9 +534,9 @@ def root(path="/"):
         )
     else:
         file_size = os.path.getsize(loc) if os.path.exists(loc) else 0
-        log_request_info('root', path, 'GET',
-                        status_code=200, is_directory=False,
-                        resource_type='file', file_size=file_size)
+        log_request_info('root', clean_path, 'GET',
+                         status_code=200, is_directory=False,
+                         resource_type='file', file_size=file_size)
         return send_from_directory(base_location, path)
 
 
