@@ -8,7 +8,6 @@
     <style>
         body {
             font-family: 'Courier New', Courier, monospace;
-        {#font-family: 'JetBrains Mono', monospace;#}
         }
 
         a {
@@ -17,7 +16,7 @@
         }
 
         .banner {
-        {#background-color: #9a0000;#} color: white;
+            color: white;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -28,8 +27,8 @@
 
         .navbar {
             margin-top: 0; /* Remove margin at the top */
-        {#background-color: #2596be;#} background-color: #5e8d87;
-        {##5988da;#} color: white;
+            background-color: #5e8d87;
+            color: white;
         }
 
         .breadcrumb-item + .breadcrumb-item::before {
@@ -49,11 +48,12 @@
 {% endif %}
 <nav class="navbar">
     <div class="container-fluid">
-        <a class="navbar-brand text-white" href="/">Files</a>
+        <a class="navbar-brand text-white" href="{{ url_for('root') }}">Files</a>
         <!-- Breadcrumb navigation -->
         <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb" class="text-white">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="/" class="{{ "text-white-50" if path != "/" else "text-white" }}">/files</a>
+                <li class="breadcrumb-item"><a href="{{ url_for('root') }}"
+                                               class="{{ "text-white-50" if path != "/" else "text-white" }}">/files</a>
                 </li>
                 {% set ns = namespace(breadcrumb_path = '') %}
                 {% for p in path.split("/") %}
@@ -224,6 +224,7 @@
                     const successModal = new bootstrap.Modal(document.getElementById('successModal'));
                     successModal.show();
                 } else {
+                    console.error('Upload failed:', xhr.status, xhr.statusText, xhr.responseText);
                     alert('Upload failed');
                 }
             });
@@ -252,6 +253,7 @@
                         window.location.reload();
                     }
                 } else {
+                    console.error('Folder creation failed:', xhr.status, xhr.statusText, xhr.responseText);
                     alert('Folder creation failed');
                 }
             });

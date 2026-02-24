@@ -4,6 +4,7 @@ from pathlib import Path
 
 import humanize
 from flask import Flask, render_template, send_from_directory, redirect, request, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
 # Read environment variables
@@ -15,7 +16,20 @@ enable_upload = os.getenv('ENABLE_UPLOAD', 'False').lower() in ('true', '1', 't'
 enable_new_folder = os.getenv('ENABLE_NEW_FOLDER', 'False').lower() in ('true', '1', 't')
 notice_text = os.getenv('NOTICE_TEXT', '')
 
+print(f"Configuration:")
+print(f"  BASE: {base}")
+print(f"  FLASK_PORT: {port}")
+print(f"  FLASK_HOST: {host}")
+print(f"  FLASK_DEBUG: {debug}")
+print(f"  ENABLE_UPLOAD: {enable_upload}")
+print(f"  ENABLE_NEW_FOLDER: {enable_new_folder}")
+print(f"  NOTICE_TEXT: {notice_text}")
+
 app = Flask(__name__, template_folder='templates', static_folder='static')
+
+# Configure the application to work behind a reverse proxy (e.g., Nginx)
+# This will respect X-Forwarded-* headers when present, but works fine without them
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Map file extensions to categories
 file_extension_to_category = {

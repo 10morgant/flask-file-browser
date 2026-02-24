@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  flask-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flask-file-browser
+    user: "1000:1000"  # Run as non-root user
+    expose:
+      - "5000"
+    volumes:
+      - ./test:/app/files
+    environment:
+      - ENABLE_UPLOAD=True
+      - ENABLE_NEW_FOLDER=True
+    networks:
+      - app-network
+    restart: unless-stopped
+    develop:
+      watch:
+        - action: sync
+          path: ./
+          target: /app
+          ignore:
+            - venv/
+        - action: rebuild
+          path: requirements.txt
+
+  nginx:
+    image: nginx:alpine
+    container_name: flask-file-browser-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/app/static:ro  # Serve static files directly from nginx
+    depends_on:
+      - flask-app
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
