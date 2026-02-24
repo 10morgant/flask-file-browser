@@ -38,6 +38,23 @@
         tr[data-href] {
             cursor: pointer;
         }
+
+        /* Hide row actions until hover */
+        .row-actions {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s ease-in-out;
+            white-space: nowrap;
+        }
+
+        tr[data-href]:hover .row-actions {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        tr[data-href]:hover .row-actions .btn {
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body>
@@ -187,6 +204,7 @@
             <th scope="col" class="px-3"></th> <!-- Empty column to create space -->
             <th scope="col" class="px-3 text-end">Size</th>
             <th scope="col" class="px-3 text-end" style="width: 250px">Last modified</th>
+            <th scope="col" class="px-3 text-end" style="width: 1%"></th>
         </tr>
         </thead>
         <tbody>
@@ -199,6 +217,19 @@
                 <td class="px-3"></td> <!-- Empty column to create space -->
                 <td class="px-3 text-end">{{ file.size }}</td>
                 <td class="px-3 text-end">{{ file.last_modified }}</td>
+                <td class="px-3 text-end">
+                    {% if file.is_deletable %}
+                        <span class="row-actions">
+                            <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger delete-btn"
+                                    data-delete-url="{{ file.delete_url }}"
+                                    data-item-name="{{ file.name }}">
+                                <i class="ti ti-trash"></i>
+                            </button>
+                        </span>
+                    {% endif %}
+                </td>
             </tr>
         {% endfor %}
         </tbody>
@@ -217,6 +248,42 @@
                 const url = new URL(this.dataset.href, window.location.origin);
                 url.searchParams.set('sort_by', sortBy);
                 window.location.href = url.pathname + url.search;
+            });
+        });
+
+        // Delete buttons (don’t trigger row navigation)
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', async function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const deleteUrl = this.dataset.deleteUrl;
+                const itemName = this.dataset.itemName || 'this item';
+
+                if (!deleteUrl) {
+                    return;
+                }
+
+                if (!confirm(`Delete ${itemName}? This can’t be undone.`)) {
+                    return;
+                }
+
+                try {
+                    const resp = await fetch(deleteUrl, {method: 'DELETE'});
+                    if (!resp.ok) {
+                        const text = await resp.text();
+                        console.error('Delete failed:', resp.status, resp.statusText, text);
+                        alert('Delete failed');
+                        return;
+                    }
+
+                    // Keep current sort_by (and any other query params) via reload.
+                    window.location.reload();
+                } catch (e) {
+                    console.error('Delete failed:', e);
+                    alert('Delete failed');
+                }
             });
         });
     });
@@ -294,3 +361,4 @@
 {% endif %}
 </body>
 </html>
+

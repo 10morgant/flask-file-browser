@@ -1,11 +1,13 @@
 import json
 import logging
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 import humanize
 from flask import Flask, render_template, send_from_directory, redirect, request, url_for
+from flask import jsonify
 from logging_loki import LokiHandler
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
@@ -279,6 +281,22 @@ def get_unique_filename(directory, filename):
     return new_filename
 
 
+def _resolve_path_in_base(user_path: str) -> Path:
+    """Resolve a user-supplied path safely within BASE.
+
+    Returns an absolute Path inside BASE. Raises ValueError if the path escapes BASE.
+    """
+    base_path = Path(base).resolve()
+    # Normalize: always treat incoming paths as relative to base.
+    rel = (user_path or '/').lstrip('/')
+    candidate = (base_path / rel).resolve()
+    try:
+        candidate.relative_to(base_path)
+    except ValueError as e:
+        raise ValueError('Path escapes base directory') from e
+    return candidate
+
+
 class JsonLogFormatter(logging.Formatter):
     """Emit one-line JSON suitable for Loki/Grafana parsing.
 
@@ -466,6 +484,8 @@ def _get_folder(path, include_dots, sort_by):
                 'is_folder': isdir,
                 'path': clean_path,
                 'url': url_for('root', path=f'{path}/{file_path.name}'),
+                'delete_url': url_for('delete_entry', path=clean_path),
+                'is_deletable': True,
                 'size': humanize.naturalsize(file_path.stat().st_size),
                 'last_modified': humanize.naturaltime(datetime.fromtimestamp(file_path.stat().st_mtime)),
                 'icon': icon,
@@ -480,7 +500,9 @@ def _get_folder(path, include_dots, sort_by):
                 'last_modified': '',
                 'icon': 'ti ti-corner-up-left-double',
                 'colour': '#0d6efd',
-                'url': url_for('root', path='/'.join(path.split('/')[:-1]))
+                'url': url_for('root', path='/'.join(path.split('/')[:-1])),
+                'delete_url': None,
+                'is_deletable': False,
             })
         return dir_contents
     else:
@@ -538,6 +560,57 @@ def root(path="/"):
                          status_code=200, is_directory=False,
                          resource_type='file', file_size=file_size)
         return send_from_directory(base_location, path)
+
+
+@app.route('/api/entry', methods=['DELETE'])
+def delete_entry():
+    """Delete a file or folder under BASE.
+
+    Accepts `path` as query arg containing the file browser path (e.g. /a/b.txt).
+    """
+    user_path = request.args.get('path') or ''
+
+    # Forbid deleting root/empty.
+    if not user_path or user_path in ('/', '.'):
+        log_request_info('delete', user_path or '/', 'DELETE', status_code=400, error='Refusing to delete root')
+        return jsonify({'ok': False, 'error': 'Refusing to delete root'}), 400
+
+    try:
+        target = _resolve_path_in_base(user_path)
+    except ValueError as e:
+        log_request_info('delete', user_path, 'DELETE', status_code=400, error=str(e))
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+    try:
+        # Disallow deleting BASE itself.
+        if target == Path(base).resolve():
+            log_request_info('delete', user_path, 'DELETE', status_code=400, error='Refusing to delete base')
+            return jsonify({'ok': False, 'error': 'Refusing to delete base'}), 400
+
+        if not target.exists() and not target.is_symlink():
+            log_request_info('delete', user_path, 'DELETE', status_code=404, error='Not found')
+            return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+        # Delete symlinks as links (never follow).
+        if target.is_symlink() or target.is_file():
+            target.unlink(missing_ok=True)
+            log_request_info('delete', user_path, 'DELETE', status_code=200, deleted_type='file')
+            return jsonify({'ok': True}), 200
+
+        if target.is_dir():
+            shutil.rmtree(target)
+            log_request_info('delete', user_path, 'DELETE', status_code=200, deleted_type='dir')
+            return jsonify({'ok': True}), 200
+
+        log_request_info('delete', user_path, 'DELETE', status_code=400, error='Unsupported file type')
+        return jsonify({'ok': False, 'error': 'Unsupported file type'}), 400
+
+    except PermissionError as e:
+        log_request_info('delete', user_path, 'DELETE', status_code=403, error=str(e))
+        return jsonify({'ok': False, 'error': 'Permission denied'}), 403
+    except Exception as e:
+        log_request_info('delete', user_path, 'DELETE', status_code=500, error=str(e))
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
