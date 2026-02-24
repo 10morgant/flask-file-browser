@@ -52,7 +52,7 @@
         <!-- Breadcrumb navigation -->
         <nav style="--bs-breadcrumb-divider: '/';" aria-label="breadcrumb" class="text-white">
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{{ url_for('root') }}"
+                <li class="breadcrumb-item"><a href="{{ url_for('root', sort_by=sort_by) }}"
                                                class="{{ "text-white-50" if path != "/" else "text-white" }}">/files</a>
                 </li>
                 {% set ns = namespace(breadcrumb_path = '') %}
@@ -60,14 +60,28 @@
                     {% if p %}
                         {% set ns.breadcrumb_path = ns.breadcrumb_path + '/' + p %}
                         <li class="breadcrumb-item">
-                            <a href="{{ ns.breadcrumb_path }}"
+                            <a href="{{ url_for('root', path=ns.breadcrumb_path, sort_by=sort_by) }}"
                                class="{{ " text-white" if loop.last else "text-white-50" }}">{{ p }}</a>
                         </li>
                     {% endif %}
                 {% endfor %}
             </ol>
         </nav>
-        <div class="d-flex">
+        <div class="d-flex align-items-center">
+            <!-- Sort dropdown -->
+            <div class="dropdown me-2">
+                <button class="btn btn-outline-light dropdown-toggle" type="button" id="sortDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="ti ti-arrows-sort"></i> Sort: {{ sort_by.replace('_', ' ').title() }}
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="sortDropdown">
+                    <li><a class="dropdown-item" href="?sort_by=name">Name (A-Z)</a></li>
+                    <li><a class="dropdown-item" href="?sort_by=name_desc">Name (Z-A)</a></li>
+                    <li><a class="dropdown-item" href="?sort_by=date">Date (Oldest)</a></li>
+                    <li><a class="dropdown-item" href="?sort_by=date_desc">Date (Newest)</a></li>
+                    <li><a class="dropdown-item" href="?sort_by=size">Size (Smallest)</a></li>
+                    <li><a class="dropdown-item" href="?sort_by=size_desc">Size (Largest)</a></li>
+                </ul>
+            </div>
             <!-- Buttons to trigger the modals -->
             {% if enable_upload %}
                 <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#uploadModal">
@@ -195,9 +209,14 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const rows = document.querySelectorAll('tr[data-href]');
+        const urlParams = new URLSearchParams(window.location.search);
+        const sortBy = urlParams.get('sort_by') || 'name';
+
         rows.forEach(row => {
             row.addEventListener('click', function () {
-                window.location.href = this.dataset.href;
+                const url = new URL(this.dataset.href, window.location.origin);
+                url.searchParams.set('sort_by', sortBy);
+                window.location.href = url.pathname + url.search;
             });
         });
     });
@@ -247,8 +266,11 @@
                     const currentPath = form.querySelector('input[name="current_path"]').value;
                     const folderName = form.querySelector('input[name="folder_name"]').value;
                     const openFolder = form.querySelector('input[name="open_folder"]').checked;
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const sortBy = urlParams.get('sort_by') || 'name';
+
                     if (openFolder) {
-                        window.location.href = currentPath + '/' + folderName;
+                        window.location.href = currentPath + '/' + folderName + '?sort_by=' + sortBy;
                     } else {
                         window.location.reload();
                     }

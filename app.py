@@ -311,14 +311,26 @@ def handle_file_upload(request, base_location):
 
 @app.route("/api/", methods=['GET'])
 @app.route("/api/<path:path>", methods=['GET'])
-def api_list(path="/", include_dots=False):
+def api_list(path="/", include_dots=False, sort_by=None):
     base_location = Path(base)
     loc = base_location / path.lstrip('/')
+
+    if sort_by is None:
+        sort_by = request.args.get('sort_by', 'date')
+
+    sort_function = {
+        'name': lambda y: y.name.lower(),
+        'date': lambda y: y.stat().st_mtime,
+        'size': lambda y: y.stat().st_size,
+    }.get(sort_by.removesuffix("_desc"), lambda y: y.name.lower())
+
+    # Determine if we need reverse sorting
+    reverse_sort = sort_by.endswith('_desc')
 
     if loc.is_dir():
         list_files = list(loc.iterdir())
         dir_contents = []
-        list_files.sort(key=lambda x: (not x.is_dir(), x.name[0] != ".", x.name.lower()))
+        list_files.sort(key=lambda x: (not x.is_dir(), x.name[0] != ".", sort_function(x)), reverse=reverse_sort)
         for file_path in list_files:
             isdir = file_path.is_dir()
             if isdir:
@@ -347,7 +359,7 @@ def api_list(path="/", include_dots=False):
                 'colour': '#0d6efd',
                 'url': url_for('root', path='/'.join(path.split('/')[:-1]))
             })
-        return {'path': path, 'contents': dir_contents}
+        return {'path': path, 'contents': dir_contents, 'total': len(dir_contents), 'sort_by': sort_by}
     else:
         return send_from_directory(base_location, path)
 
@@ -362,7 +374,8 @@ def root(path="/"):
         return handle_file_upload(request, base_location)
 
     if os.path.isdir(loc):
-        files = api_list(path, include_dots=True).get('contents', [])
+        sort_by = request.args.get('sort_by', 'name')
+        files = api_list(path, include_dots=True, sort_by=sort_by).get('contents', [])
         dir_contents = files
 
         return render_template(
@@ -371,7 +384,8 @@ def root(path="/"):
             list_files=dir_contents,
             notice_text=notice_text,
             enable_upload=enable_upload,
-            enable_new_folder=enable_new_folder
+            enable_new_folder=enable_new_folder,
+            sort_by=sort_by
         )
     else:
         return send_from_directory(base_location, path)
