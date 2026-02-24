@@ -1,9 +1,12 @@
+import logging
 import os
-from datetime import datetime
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import humanize
 from flask import Flask, render_template, send_from_directory, redirect, request, url_for
+from logging_loki import LokiHandler
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import secure_filename
 
@@ -15,6 +18,7 @@ debug = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
 enable_upload = os.getenv('ENABLE_UPLOAD', 'False').lower() in ('true', '1', 't')
 enable_new_folder = os.getenv('ENABLE_NEW_FOLDER', 'False').lower() in ('true', '1', 't')
 notice_text = os.getenv('NOTICE_TEXT', '')
+loki_url = os.getenv('LOKI_URL', '')
 
 print(f"Configuration:")
 print(f"  BASE: {base}")
@@ -24,6 +28,7 @@ print(f"  FLASK_DEBUG: {debug}")
 print(f"  ENABLE_UPLOAD: {enable_upload}")
 print(f"  ENABLE_NEW_FOLDER: {enable_new_folder}")
 print(f"  NOTICE_TEXT: {notice_text}")
+print(f"  LOKI_URL: {loki_url}")
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -274,9 +279,82 @@ def get_unique_filename(directory, filename):
     return new_filename
 
 
+def setup_loki_logger(loki_url: str) -> logging.Logger:
+    """Set up Loki logging handler with JSON formatting."""
+    logger = logging.getLogger('files_server')
+    logger.setLevel(logging.INFO)
+    if not loki_url:
+        return logger  # Loki logging is disabled if URL is not provided
+
+    # Parse the URL to ensure it has a scheme
+    if not loki_url.startswith(('http://', 'https://')):
+        loki_url = f"http://{loki_url}"
+
+    # Build the full Loki push URL
+    if not loki_url.endswith('/loki/api/v1/push'):
+        loki_url = f"{loki_url.rstrip('/')}/loki/api/v1/push"
+
+    # Add Loki handler with JSON formatter
+    loki_handler = LokiHandler(
+        url=loki_url,
+        tags={"application": "files_server"},
+        version="1",
+    )
+
+    # Use a JSON-style formatter
+    formatter = logging.Formatter(
+        '{"message": "%(message)s", "level": "%(levelname)s", "logger": "%(name)s"}'
+    )
+    loki_handler.setFormatter(formatter)
+    logger.addHandler(loki_handler)
+
+    return logger
+
+
+loki_logger = setup_loki_logger(loki_url)
+
+
+def log_request_info(endpoint, path, method, status_code=None, **kwargs):
+    """Log request information as JSON."""
+    if not loki_logger.handlers:
+        return  # Skip if Loki logging is not configured
+
+    # Get the real client IP address (accounting for proxies)
+    # ProxyFix middleware should handle this, but we'll be explicit
+    real_ip = request.headers.get('X-Real-IP') or \
+              request.headers.get('X-Forwarded-For', '').split(',')[0].strip() or \
+              request.remote_addr
+    print(request.headers.get('X-Real-IP'), request.headers.get('X-Forwarded-For', '').split(',')[0].strip())
+    print(f"Logging request: {method} {request.path} from {real_ip}")
+
+    log_data = {
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'endpoint': endpoint,
+        'path': path,
+        'method': method,
+        'remote_addr': real_ip,
+        'user_agent': request.headers.get('User-Agent', ''),
+        'referrer': request.referrer or '',
+        # Add proxy debugging info
+        'x_forwarded_for': request.headers.get('X-Forwarded-For', ''),
+        'x_real_ip': request.headers.get('X-Real-IP', ''),
+        'request_remote_addr': request.remote_addr,  # What Flask sees after ProxyFix
+    }
+
+    if status_code:
+        log_data['status_code'] = status_code
+
+    # Add any additional kwargs
+    log_data.update(kwargs)
+
+    loki_logger.info(json.dumps(log_data))
+
+
 @app.route('/new_folder', methods=['POST'])
 def new_folder():
     if not enable_new_folder:
+        log_request_info('new_folder', request.form.get('current_path', '/'), 'POST',
+                        status_code=403, error='New folder creation is disabled')
         return 'New folder creation is disabled', 403
     current_path = request.form.get('current_path', '/')
     folder_name = request.form.get('folder_name')
@@ -285,20 +363,31 @@ def new_folder():
 
     try:
         new_folder_path.mkdir(parents=True, exist_ok=True)
+        log_request_info('new_folder', current_path, 'POST',
+                        status_code=200, folder_name=folder_name,
+                        full_path=str(new_folder_path))
         return '', 200
     except Exception as e:
+        log_request_info('new_folder', current_path, 'POST',
+                        status_code=500, error=str(e), folder_name=folder_name)
         return str(e), 500
 
 
 def handle_file_upload(request, base_location):
     if not enable_upload:
+        log_request_info('upload', request.form.get('current_path', '/'), 'POST',
+                        status_code=403, error='File upload is disabled')
         return 'File upload is disabled', 403
 
     if 'file' not in request.files:
+        log_request_info('upload', request.form.get('current_path', '/'), 'POST',
+                        status_code=400, error='No file part')
         return 'No file part'
 
     file = request.files['file']
     if file.filename == '':
+        log_request_info('upload', request.form.get('current_path', '/'), 'POST',
+                        status_code=400, error='No selected file')
         return 'No selected file'
     if file:
         current_path = request.form.get('current_path', '/')
@@ -306,6 +395,9 @@ def handle_file_upload(request, base_location):
         filename = secure_filename(file.filename)
         unique_filename = get_unique_filename(upload_dir, filename)
         file.save(os.path.join(upload_dir, unique_filename))
+        log_request_info('upload', current_path, 'POST',
+                        status_code=200, filename=unique_filename,
+                        original_filename=filename, upload_dir=upload_dir)
         return redirect(url_for('root', path=current_path))
 
 
@@ -359,8 +451,14 @@ def api_list(path="/", include_dots=False, sort_by=None):
                 'colour': '#0d6efd',
                 'url': url_for('root', path='/'.join(path.split('/')[:-1]))
             })
+        log_request_info('api_list', path, 'GET',
+                        status_code=200, is_directory=True,
+                        file_count=len(dir_contents), sort_by=sort_by)
         return {'path': path, 'contents': dir_contents, 'total': len(dir_contents), 'sort_by': sort_by}
     else:
+        log_request_info('api_list', path, 'GET',
+                        status_code=200, is_directory=False,
+                        resource_type='file')
         return send_from_directory(base_location, path)
 
 
@@ -378,6 +476,10 @@ def root(path="/"):
         files = api_list(path, include_dots=True, sort_by=sort_by).get('contents', [])
         dir_contents = files
 
+        log_request_info('root', path, 'GET',
+                        status_code=200, is_directory=True,
+                        file_count=len(dir_contents), sort_by=sort_by)
+
         return render_template(
             'index.jinja2',
             path=path,
@@ -388,6 +490,10 @@ def root(path="/"):
             sort_by=sort_by
         )
     else:
+        file_size = os.path.getsize(loc) if os.path.exists(loc) else 0
+        log_request_info('root', path, 'GET',
+                        status_code=200, is_directory=False,
+                        resource_type='file', file_size=file_size)
         return send_from_directory(base_location, path)
 
 

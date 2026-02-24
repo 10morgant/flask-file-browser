@@ -1,5 +1,8 @@
 FROM python:3.10-slim
 
+# Disable Python output buffering
+ENV PYTHONUNBUFFERED=1
+
 # Create a non-root user
 RUN useradd -m appuser
 

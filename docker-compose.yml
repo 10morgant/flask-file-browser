@@ -7,15 +7,14 @@ services:
       dockerfile: Dockerfile
     container_name: flask-file-browser
     user: "1000:1000"  # Run as non-root user
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
     volumes:
       - ./test:/app/files
     environment:
       - ENABLE_UPLOAD=True
       - ENABLE_NEW_FOLDER=True
-    networks:
-      - app-network
+      - LOKI_URL=loki:3100
     restart: unless-stopped
     develop:
       watch:
@@ -37,11 +36,30 @@ services:
       - ./static:/app/static:ro  # Serve static files directly from nginx
     depends_on:
       - flask-app
-    networks:
-      - app-network
     restart: unless-stopped
 
-networks:
-  app-network:
-    driver: bridge
 
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - loki
+
+
+volumes:
+  grafana-storage:
