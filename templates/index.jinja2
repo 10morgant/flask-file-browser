@@ -15,6 +15,16 @@
             color: black;
         }
 
+        /* Links in the file list should behave like links for right-click,
+           but visually match the row text to avoid layout/paint changes. */
+        a.file-link {
+            color: inherit;
+        }
+
+        a.file-link:hover {
+            text-decoration: underline;
+        }
+
         .banner {
             color: white;
             display: flex;
@@ -248,14 +258,17 @@
         rows.forEach(row => {
             row.addEventListener('click', function (e) {
                 // If a user clicks an actual link (for right-click "copy link"), let the browser handle it.
-                if (e.target && e.target.closest && e.target.closest('a')) {
-                    return;
+                // But: for left-click on the link we still want to route through this handler,
+                // because it preserves sort_by consistently and avoids a noticeable repaint.
+                const link = (e.target && e.target.closest) ? e.target.closest('a.file-link') : null;
+                if (link) {
+                    e.preventDefault();
                 }
-                 const url = new URL(this.dataset.href, window.location.origin);
-                 url.searchParams.set('sort_by', sortBy);
-                 window.location.href = url.pathname + url.search;
-             });
-         });
+                const url = new URL(this.dataset.href, window.location.origin);
+                url.searchParams.set('sort_by', sortBy);
+                window.location.href = url.pathname + url.search;
+            });
+        });
 
          // Delete buttons (don’t trigger row navigation)
          const deleteButtons = document.querySelectorAll('.delete-btn');
