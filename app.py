@@ -309,6 +309,49 @@ def handle_file_upload(request, base_location):
         return redirect(url_for('root', path=current_path))
 
 
+@app.route("/api/", methods=['GET'])
+@app.route("/api/<path:path>", methods=['GET'])
+def api_list(path="/", include_dots=False):
+    base_location = Path(base)
+    loc = base_location / path.lstrip('/')
+
+    if loc.is_dir():
+        list_files = list(loc.iterdir())
+        dir_contents = []
+        list_files.sort(key=lambda x: (not x.is_dir(), x.name[0] != ".", x.name.lower()))
+        for file_path in list_files:
+            isdir = file_path.is_dir()
+            if isdir:
+                icon, color = 'ti ti-folder-filled', '#5988da'
+            else:
+                icon, color = get_file_icon_and_color(str(file_path))
+            clean_path = f'{path}/{file_path.name}'.replace('//', '/')
+            dir_contents.append({
+                'name': file_path.name,
+                'is_folder': isdir,
+                'path': clean_path,
+                'url': url_for('root', path=f'{path}/{file_path.name}'),
+                'size': humanize.naturalsize(file_path.stat().st_size),
+                'last_modified': humanize.naturaltime(datetime.fromtimestamp(file_path.stat().st_mtime)),
+                'icon': icon,
+                'colour': color
+            })
+        if path != '/' and include_dots:
+            dir_contents.insert(0, {
+                'name': '..',
+                'is_folder': True,
+                'path': '/'.join(path.split('/')[:-1]),
+                'size': '',
+                'last_modified': '',
+                'icon': 'ti ti-corner-up-left-double',
+                'colour': '#0d6efd',
+                'url': url_for('root', path='/'.join(path.split('/')[:-1]))
+            })
+        return {'path': path, 'contents': dir_contents}
+    else:
+        return send_from_directory(base_location, path)
+
+
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/<path:path>', methods=['GET', 'POST'])
 def root(path="/"):
@@ -318,37 +361,10 @@ def root(path="/"):
     if request.method == 'POST':
         return handle_file_upload(request, base_location)
 
-    is_folder = os.path.isdir(loc)
-    if is_folder:
-        list_files = os.listdir(loc)
-        dir_contents = []
-        list_files.sort(key=lambda x: (not os.path.isdir(os.path.join(loc, x)), x[0] != ".", x.lower()))
-        for file in list_files:
-            file_path = os.path.join(loc, file)
-            isdir = os.path.isdir(file_path)
-            if isdir:
-                icon, color = 'ti ti-folder-filled', '#5988da'
-            else:
-                icon, color = get_file_icon_and_color(file)
-            dir_contents.append({
-                'name': file,
-                'is_folder': isdir,
-                'path': f'{path}/{file}',
-                'size': humanize.naturalsize(os.path.getsize(file_path)),
-                'last_modified': humanize.naturaltime(datetime.fromtimestamp(os.path.getmtime(file_path))),
-                'icon': icon,
-                'colour': color
-            })
-        if path != '/':
-            dir_contents.insert(0, {
-                'name': '..',
-                'is_folder': True,
-                'path': '/'.join(path.split('/')[:-1]),
-                'size': '',
-                'last_modified': '',
-                'icon': 'ti ti-corner-up-left-double',
-                'colour': '#0d6efd'
-            })
+    if os.path.isdir(loc):
+        files = api_list(path, include_dots=True).get('contents', [])
+        dir_contents = files
+
         return render_template(
             'index.jinja2',
             path=path,
